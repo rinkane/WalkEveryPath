@@ -1,0 +1,10 @@
+version: '3.9'
+services:
+  client-app:
+    build: ./client-app
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./client-app:/usr/src/client-app
+      - /usr/src/client-app/node_modules
+    tty: true
