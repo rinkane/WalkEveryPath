@@ -2,4 +2,4 @@ build:
   docker:
     web: client-app/Dockerfile
 run:
-  web: ng serve
+  web: node server.js
