@@ -1,0 +1,5 @@
+build:
+  docker:
+    web: client-app/Dockerfile
+run:
+  web: ng serve
