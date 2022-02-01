@@ -24,6 +24,7 @@
     "@ng-web-apis/geolocation": "^1.0.4",
     "compression": "^1.7.4",
     "express": "^4.17.2",
+    "express-basic-auth": "^1.2.1",
     "leaflet": "^1.7.1",
     "rxjs": "~7.5.0",
     "tslib": "^2.3.0",
