@@ -2,10 +2,10 @@ FROM node:17-slim
 
 WORKDIR /usr/src/client-app
 
-RUN apt-get update
-RUN echo y | apt-get install git
-RUN npm install -g @angular/cli
+COPY package*.json ./
 
-COPY ./ ./
+RUN npm install
 
-EXPOSE 4200
+COPY . .
+
+RUN npm run build
