@@ -76,7 +76,7 @@ export class MapComponent implements OnInit {
    * 現在の使用者の位置情報を更新する
    * @param coordinates 座標
    */
-  setNowCoordinatesFromCoordintates(coordinates: Coordinates){
+  setNowCoordinatesFromCoordintates(coordinates: Coordinates) {
     this.nowCoordinates = new Coordinates(
       coordinates.latitude,
       coordinates.longitude
@@ -93,7 +93,10 @@ export class MapComponent implements OnInit {
         this.putMarker(coordinates);
         this.initLines();
       } else {
-        this.setMarkerPosition(coordinates);
+        this.setMarkerCoordinates(coordinates);
+        if (this.isTrackingUser === true) {
+          this.setMapCoordinates(coordinates);
+        }
       }
       this.addWalkedPathVertex(coordinates);
     }
@@ -169,8 +172,16 @@ export class MapComponent implements OnInit {
    * マーカーの位置を使用者の現在位置に更新する
    * @param coordinates 使用者の座標
    */
-  setMarkerPosition(coordinates: Coordinates) {
+  setMarkerCoordinates(coordinates: Coordinates) {
     this.marker?.setLatLng([coordinates.latitude, coordinates.longitude]);
+  }
+
+  /**
+   * 地図の表示座標を指定した座標を中心とした位置に変更する
+   * @param coordinates
+   */
+  setMapCoordinates(coordinates: Coordinates) {
+    this.map?.setView([coordinates.latitude, coordinates.longitude]);
   }
 
   /**
@@ -206,14 +217,14 @@ export class MapComponent implements OnInit {
   /**
    * 使用者の移動の追跡を開始する
    */
-  startTracingUser(){
+  startTracingUser() {
     this.addWalkedPathVertex(this.nowCoordinates);
   }
 
   /**
    * 使用者の移動の追跡を終了する
    */
-  endTrackingUser(){
+  endTrackingUser() {
     this.initLines();
   }
 }
