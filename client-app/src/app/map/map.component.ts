@@ -129,9 +129,7 @@ export class MapComponent implements OnInit {
         {
           icon: icon,
         }
-      );
-
-      this.marker.addTo(this.map);
+      ).addTo(this.map);
     }
   }
 
