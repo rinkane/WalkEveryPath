@@ -1,9 +1,9 @@
-<div *ngIf="coordinates !== undefined; else loading" id="map"></div>
+<div *ngIf="nowCoordinates !== undefined; else loading" id="map"></div>
 <ng-template #loading>
   Now Loading...
 </ng-template>
-<div *ngIf="coordinates !== undefined;">
-  <div>{{ coordinates.latitude }}</div>
-  <div>{{ coordinates.longitude }}</div>
+<div *ngIf="nowCoordinates !== undefined;">
+  <div>{{ nowCoordinates.latitude }}</div>
+  <div>{{ nowCoordinates.longitude }}</div>
 </div>
-<div>{{ mapLoadCount }}</div>
+<div>{{ geolocateLoadCount }}</div>
