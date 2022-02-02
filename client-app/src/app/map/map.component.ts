@@ -13,12 +13,12 @@ export class MapComponent implements OnInit {
    * Leafletで描画する地図クラス
    */
   map?: Leaflet.Map;
-  
+
   /**
    * Leafletで利用者が通ってきた経路に描画する線
    */
-   walkedPath?: Leaflet.Polyline;
-   
+  walkedPath?: Leaflet.Polyline;
+
   /**
    * Leafletで利用者のいる位置に描画するマーカー
    */
@@ -34,7 +34,7 @@ export class MapComponent implements OnInit {
    */
   nowCoordinates?: Coordinates;
 
-  /** 
+  /**
    * デバッグ用に使用する位置情報を読み込んだ回数
    */
   geolocateLoadCount: number = 0;
