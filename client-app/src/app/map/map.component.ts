@@ -44,10 +44,15 @@ export class MapComponent implements OnInit {
    */
   isClickToMove: boolean = false;
 
+  /**
+   * 使用者の移動を追跡するモードかどうか
+   */
+  isTrackingUser: boolean = false;
+
   constructor(private readonly geolocation$: GeolocationService) {
     this.geolocation = geolocation$;
     this.geolocation.subscribe((position) => {
-      this.setNowCoordinates(position);
+      this.setNowCoordinatesFromGeoPos(position);
       this.updateMapView(this.nowCoordinates);
     });
   }
@@ -60,10 +65,21 @@ export class MapComponent implements OnInit {
    * 現在の使用者の位置情報を更新する
    * @param position Geolocation APIから取得した位置情報
    */
-  setNowCoordinates(position: GeolocationPosition) {
+  setNowCoordinatesFromGeoPos(position: GeolocationPosition) {
     this.nowCoordinates = new Coordinates(
       position.coords.latitude,
       position.coords.longitude
+    );
+  }
+
+  /**
+   * 現在の使用者の位置情報を更新する
+   * @param coordinates 座標
+   */
+  setNowCoordinatesFromCoordintates(coordinates: Coordinates){
+    this.nowCoordinates = new Coordinates(
+      coordinates.latitude,
+      coordinates.longitude
     );
   }
 
@@ -105,10 +121,11 @@ export class MapComponent implements OnInit {
     this.map.on('click', (e: Leaflet.LeafletMouseEvent) => {
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
-      if(this.isClickToMove == true){
+      if (this.isClickToMove == true) {
+        this.setNowCoordinatesFromCoordintates(new Coordinates(lat, lng));
         this.updateMapView(new Coordinates(lat, lng));
       }
-    })
+    });
   }
 
   /**
@@ -136,7 +153,7 @@ export class MapComponent implements OnInit {
       const icon = Leaflet.icon({
         iconUrl: '../../assets/Icon.png',
         iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        iconAnchor: [16, 16],
       });
 
       this.marker = Leaflet.marker(
@@ -160,14 +177,29 @@ export class MapComponent implements OnInit {
    * これまでの移動経路の頂点を追加する
    * @param coordinates 使用者の座標
    */
-  addWalkedPathVertex(coordinates: Coordinates) {
-    this.walkedPath?.addLatLng([coordinates.latitude, coordinates.longitude]);
+  addWalkedPathVertex(coordinates: Coordinates | undefined) {
+    if (this.isTrackingUser == true && coordinates !== undefined) {
+      this.walkedPath?.addLatLng([coordinates.latitude, coordinates.longitude]);
+    }
   }
 
   /**
    * クリックした場所に移動できるモードかどうか切り替える
    */
-  changeIsClickMoveMode(){
+  changeIsClickMoveMode() {
     this.isClickToMove = !this.isClickToMove;
+  }
+
+  /**
+   * 使用者の移動を追跡するモードかどうか切り替える
+   */
+  changeIsTrackingUserMode() {
+    this.isTrackingUser = !this.isTrackingUser;
+
+    if (this.isTrackingUser == true) {
+      this.addWalkedPathVertex(this.nowCoordinates);
+    } else {
+      this.initLines();
+    }
   }
 }
