@@ -7,3 +7,9 @@
   <div>{{ nowCoordinates.longitude }}</div>
 </div>
 <div>{{ geolocateLoadCount }}</div>
+<div *ngIf="isClickToMove == true; else clickToMoveModeOff">
+  <button (click)="changeIsClickMoveMode()">ClickToMove On</button>
+</div>
+<ng-template #clickToMoveModeOff>
+  <button (click)="changeIsClickMoveMode()">ClickToMove Off</button>
+</ng-template>
