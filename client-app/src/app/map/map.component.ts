@@ -197,9 +197,23 @@ export class MapComponent implements OnInit {
     this.isTrackingUser = !this.isTrackingUser;
 
     if (this.isTrackingUser == true) {
-      this.addWalkedPathVertex(this.nowCoordinates);
+      this.startTracingUser();
     } else {
-      this.initLines();
+      this.endTrackingUser();
     }
+  }
+
+  /**
+   * 使用者の移動の追跡を開始する
+   */
+  startTracingUser(){
+    this.addWalkedPathVertex(this.nowCoordinates);
+  }
+
+  /**
+   * 使用者の移動の追跡を終了する
+   */
+  endTrackingUser(){
+    this.initLines();
   }
 }
