@@ -39,11 +39,16 @@ export class MapComponent implements OnInit {
    */
   geolocateLoadCount: number = 0;
 
+  /**
+   * クリックした場所に移動できるモードかどうか
+   */
+  isClickToMove: boolean = false;
+
   constructor(private readonly geolocation$: GeolocationService) {
     this.geolocation = geolocation$;
     this.geolocation.subscribe((position) => {
       this.setNowCoordinates(position);
-      this.updateMapView();
+      this.updateMapView(this.nowCoordinates);
     });
   }
 
@@ -65,16 +70,16 @@ export class MapComponent implements OnInit {
   /**
    * マップの表示を更新する
    */
-  updateMapView(): void {
-    if (this.nowCoordinates !== undefined) {
+  updateMapView(coordinates: Coordinates | undefined): void {
+    if (coordinates !== undefined) {
       if (this.map === undefined) {
-        this.showMap(this.nowCoordinates);
-        this.putMarker(this.nowCoordinates);
+        this.showMap(coordinates);
+        this.putMarker(coordinates);
         this.initLines();
       } else {
-        this.setMarkerPosition(this.nowCoordinates);
+        this.setMarkerPosition(coordinates);
       }
-      this.addWalkedPathVertex(this.nowCoordinates);
+      this.addWalkedPathVertex(coordinates);
     }
 
     this.geolocateLoadCount++;
@@ -96,6 +101,14 @@ export class MapComponent implements OnInit {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(this.map);
+
+    this.map.on('click', (e: Leaflet.LeafletMouseEvent) => {
+      const lat = e.latlng.lat;
+      const lng = e.latlng.lng;
+      if(this.isClickToMove == true){
+        this.updateMapView(new Coordinates(lat, lng));
+      }
+    })
   }
 
   /**
@@ -122,6 +135,8 @@ export class MapComponent implements OnInit {
 
       const icon = Leaflet.icon({
         iconUrl: '../../assets/Icon.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
       });
 
       this.marker = Leaflet.marker(
@@ -147,5 +162,12 @@ export class MapComponent implements OnInit {
    */
   addWalkedPathVertex(coordinates: Coordinates) {
     this.walkedPath?.addLatLng([coordinates.latitude, coordinates.longitude]);
+  }
+
+  /**
+   * クリックした場所に移動できるモードかどうか切り替える
+   */
+  changeIsClickMoveMode(){
+    this.isClickToMove = !this.isClickToMove;
   }
 }
