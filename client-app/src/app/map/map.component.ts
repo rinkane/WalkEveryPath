@@ -9,28 +9,26 @@ import { Coordinates } from '../shared/model/Coordinates';
   styleUrls: ['./map.component.scss'],
 })
 export class MapComponent implements OnInit {
-  map: any;
+  map?: Leaflet.Map;
   geolocation: GeolocationService;
+  marker?: Leaflet.Marker<any>;
   coordinates?: Coordinates;
   mapLoadCount: number = 0;
 
   constructor(private readonly geolocation$: GeolocationService) {
     this.geolocation = geolocation$;
     this.geolocation.subscribe((position) => {
-
-      this.coordinates = new Coordinates(
+      const coordinates: Coordinates = new Coordinates(
         position.coords.latitude,
         position.coords.longitude
       );
 
-      this.map = Leaflet.map('map').setView(
-        [this.coordinates.latitude, this.coordinates.longitude],
-        13
-      );
-      Leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(this.map);
+      this.coordinates = coordinates;
+
+      if (this.map === undefined) {
+        this.showMap(coordinates);
+      }
+      this.putMarker(coordinates);
 
       this.mapLoadCount++;
     });
@@ -39,4 +37,41 @@ export class MapComponent implements OnInit {
   ngOnInit(): void {}
 
   ngOnDestroy(): void {}
+
+  /**
+   * ページ上に地図を表示する
+   * @param coordinates 使用者の座標
+   */
+  showMap(coordinates: Coordinates): void {
+    const zoom = 15;
+
+    this.map = Leaflet.map('map').setView(
+      [coordinates.latitude, coordinates.longitude],
+      zoom
+    );
+
+    Leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(this.map);
+  }
+
+  /**
+   * 使用者の現在位置にマーカーを置く
+   * @param coordinates 使用者の座標
+   */
+  putMarker(coordinates: Coordinates): void {
+    if (this.map !== undefined) {
+      if (this.marker !== undefined) {
+        this.map.removeLayer(this.marker);
+      }
+
+      this.marker = Leaflet.marker([
+        coordinates.latitude,
+        coordinates.longitude,
+      ]);
+
+      this.marker.addTo(this.map);
+    }
+  }
 }
