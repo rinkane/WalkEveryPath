@@ -135,6 +135,8 @@ export class MapComponent implements OnInit {
 
       const icon = Leaflet.icon({
         iconUrl: '../../assets/Icon.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
       });
 
       this.marker = Leaflet.marker(
