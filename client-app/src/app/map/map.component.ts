@@ -111,6 +111,6 @@ export class MapComponent implements OnInit {
    * @param coordinates 使用者の座標
    */
   addWalkedPathVertex(coordinates: Coordinates) {
-    this.walkedPath?.addLatLng([coordinates.latitude+(this.mapLoadCount * 0.0001), coordinates.longitude+(this.mapLoadCount * 0.0001)]);
+    this.walkedPath?.addLatLng([coordinates.latitude, coordinates.longitude]);
   }
 }
