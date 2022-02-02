@@ -27,8 +27,10 @@ export class MapComponent implements OnInit {
 
       if (this.map === undefined) {
         this.showMap(coordinates);
+        this.putMarker(coordinates);
+      } else {
+        this.setMarkerPosition(coordinates);
       }
-      this.putMarker(coordinates);
 
       this.mapLoadCount++;
     });
@@ -66,12 +68,26 @@ export class MapComponent implements OnInit {
         this.map.removeLayer(this.marker);
       }
 
-      this.marker = Leaflet.marker([
-        coordinates.latitude,
-        coordinates.longitude,
-      ]);
+      const icon = Leaflet.icon({
+        iconUrl: '../../assets/Icon.png',
+      });
+
+      this.marker = Leaflet.marker(
+        [coordinates.latitude, coordinates.longitude],
+        {
+          icon: icon,
+        }
+      );
 
       this.marker.addTo(this.map);
     }
+  }
+
+  /**
+   * マーカーの位置を使用者の現在位置に更新する
+   * @param coordinates 使用者の座標
+   */
+  setMarkerPosition(coordinates: Coordinates) {
+    this.marker?.setLatLng([coordinates.latitude, coordinates.longitude]);
   }
 }
