@@ -13,6 +13,7 @@ export class MapComponent implements OnInit {
   geolocation: GeolocationService;
   marker?: Leaflet.Marker<any>;
   coordinates?: Coordinates;
+  walkedPath?: Leaflet.Polyline;
   mapLoadCount: number = 0;
 
   constructor(private readonly geolocation$: GeolocationService) {
@@ -28,9 +29,11 @@ export class MapComponent implements OnInit {
       if (this.map === undefined) {
         this.showMap(coordinates);
         this.putMarker(coordinates);
+        this.initLines();
       } else {
         this.setMarkerPosition(coordinates);
       }
+      this.addWalkedPathVertex(coordinates);
 
       this.mapLoadCount++;
     });
@@ -56,6 +59,18 @@ export class MapComponent implements OnInit {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(this.map);
+  }
+
+  /**
+   * これまで通過したルートを線で描画する
+   */
+  initLines() {
+    if (this.map !== undefined) {
+      let lines = Leaflet.polyline([], {
+        color: 'blue',
+        weight: 3,
+      }).addTo(this.map);
+    }
   }
 
   /**
@@ -89,5 +104,13 @@ export class MapComponent implements OnInit {
    */
   setMarkerPosition(coordinates: Coordinates) {
     this.marker?.setLatLng([coordinates.latitude, coordinates.longitude]);
+  }
+
+  /**
+   * これまでの移動経路の頂点を追加する
+   * @param coordinates 使用者の座標
+   */
+  addWalkedPathVertex(coordinates: Coordinates) {
+    this.walkedPath?.addLatLng([coordinates.latitude+(this.mapLoadCount * 0.0001), coordinates.longitude+(this.mapLoadCount * 0.0001)]);
   }
 }
