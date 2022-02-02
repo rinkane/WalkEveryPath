@@ -12,36 +12,50 @@ export class MapComponent implements OnInit {
   map?: Leaflet.Map;
   geolocation: GeolocationService;
   marker?: Leaflet.Marker<any>;
-  coordinates?: Coordinates;
+  nowCoordinates?: Coordinates;
   walkedPath?: Leaflet.Polyline;
   mapLoadCount: number = 0;
 
   constructor(private readonly geolocation$: GeolocationService) {
     this.geolocation = geolocation$;
     this.geolocation.subscribe((position) => {
-      const coordinates: Coordinates = new Coordinates(
-        position.coords.latitude,
-        position.coords.longitude
-      );
-
-      this.coordinates = coordinates;
-
-      if (this.map === undefined) {
-        this.showMap(coordinates);
-        this.putMarker(coordinates);
-        this.initLines();
-      } else {
-        this.setMarkerPosition(coordinates);
-      }
-      this.addWalkedPathVertex(coordinates);
-
-      this.mapLoadCount++;
+      this.updateNowCoordinates(position);
+      this.updateMapView();
     });
   }
 
   ngOnInit(): void {}
 
   ngOnDestroy(): void {}
+
+  /**
+   * 現在の使用者の位置情報を更新する
+   * @param position Geolocation APIから取得した位置情報
+   */
+  updateNowCoordinates(position: GeolocationPosition) {
+    this.nowCoordinates = new Coordinates(
+      position.coords.latitude,
+      position.coords.longitude
+    );
+  }
+
+  /**
+   * マップの表示を更新する
+   */
+  updateMapView(): void {
+    if (this.nowCoordinates !== undefined) {
+      if (this.map === undefined) {
+        this.showMap(this.nowCoordinates);
+        this.putMarker(this.nowCoordinates);
+        this.initLines();
+      } else {
+        this.setMarkerPosition(this.nowCoordinates);
+      }
+      this.addWalkedPathVertex(this.nowCoordinates);
+    }
+
+    this.mapLoadCount++;
+  }
 
   /**
    * ページ上に地図を表示する
@@ -66,7 +80,7 @@ export class MapComponent implements OnInit {
    */
   initLines() {
     if (this.map !== undefined) {
-      let lines = Leaflet.polyline([], {
+      this.walkedPath = Leaflet.polyline([], {
         color: 'blue',
         weight: 3,
       }).addTo(this.map);
