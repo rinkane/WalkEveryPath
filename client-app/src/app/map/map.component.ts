@@ -132,14 +132,26 @@ export class MapComponent implements OnInit {
   }
 
   /**
-   * これまで通過したルートを線で描画する
+   * これまで通ってきた経路を線で描画する
    */
   initLines() {
+    this.removeIfWalkedPathIsPoint();
+
     if (this.map !== undefined) {
       this.walkedPath = Leaflet.polyline([], {
         color: 'blue',
         weight: 3,
       }).addTo(this.map);
+    }
+  }
+
+  /**
+   * これまで通ってきた経路が点だった場合、その経路を地図から削除する
+   */
+  removeIfWalkedPathIsPoint(){
+    if(this.walkedPath?.getLatLngs().length !== undefined && 
+    this.walkedPath?.getLatLngs().length < 2){
+      this.map?.removeLayer(this.walkedPath);
     }
   }
 
