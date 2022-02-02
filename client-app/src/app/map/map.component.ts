@@ -218,7 +218,8 @@ export class MapComponent implements OnInit {
    * 使用者の移動の追跡を開始する
    */
   startTracingUser() {
-    this.addWalkedPathVertex(this.nowCoordinates);
+    this.updateMapView(this.nowCoordinates);
+    this.map?.dragging.disable();
   }
 
   /**
@@ -226,5 +227,6 @@ export class MapComponent implements OnInit {
    */
   endTrackingUser() {
     this.initLines();
+    this.map?.dragging.enable();
   }
 }
