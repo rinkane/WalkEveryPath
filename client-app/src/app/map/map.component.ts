@@ -146,7 +146,8 @@ export class MapComponent implements OnInit {
   }
 
   /**
-   * これまで通ってきた経路が点だった場合、その経路を地図から削除する
+   * これまで通ってきた経路が点だった場合、つまり移動していない場合、
+   * その経路を地図から削除する
    */
   removeIfWalkedPathIsPoint(){
     if(this.walkedPath?.getLatLngs().length !== undefined && 
@@ -201,7 +202,8 @@ export class MapComponent implements OnInit {
    * @param coordinates 使用者の座標
    */
   addWalkedPathVertex(coordinates: Coordinates | undefined) {
-    if (this.isTrackingUser == true && coordinates !== undefined) {
+    if (this.isTrackingUser == true && 
+        coordinates !== undefined) {
       this.walkedPath?.addLatLng([coordinates.latitude, coordinates.longitude]);
     }
   }
@@ -232,6 +234,12 @@ export class MapComponent implements OnInit {
   startTracingUser() {
     this.updateMapView(this.nowCoordinates);
     this.map?.dragging.disable();
+    this.map?.scrollWheelZoom.disable();
+    this.map?.touchZoom.disable();
+    this.map?.tap?.disable();
+    this.map?.doubleClickZoom.disable();
+    this.map?.boxZoom.disable();
+    this.map?.keyboard.disable();
   }
 
   /**
@@ -240,5 +248,11 @@ export class MapComponent implements OnInit {
   endTrackingUser() {
     this.initLines();
     this.map?.dragging.enable();
+    this.map?.scrollWheelZoom.enable();
+    this.map?.touchZoom.enable();
+    this.map?.tap?.enable();
+    this.map?.doubleClickZoom.enable();
+    this.map?.boxZoom.enable();
+    this.map?.keyboard.enable();
   }
 }
