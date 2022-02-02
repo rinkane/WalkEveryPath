@@ -65,11 +65,16 @@ export class MapComponent implements OnInit {
       if (this.marker !== undefined) {
         this.map.removeLayer(this.marker);
       }
+      const icon = Leaflet.icon({
+        iconUrl: "../../assets/Icon.png",
+      })
 
       this.marker = Leaflet.marker([
         coordinates.latitude,
-        coordinates.longitude,
-      ]);
+        coordinates.longitude
+      ], {
+        icon: icon
+      });
 
       this.marker.addTo(this.map);
     }
