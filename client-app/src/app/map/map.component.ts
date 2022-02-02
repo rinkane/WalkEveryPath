@@ -9,17 +9,40 @@ import { Coordinates } from '../shared/model/Coordinates';
   styleUrls: ['./map.component.scss'],
 })
 export class MapComponent implements OnInit {
+  /**
+   * Leafletで描画する地図クラス
+   */
   map?: Leaflet.Map;
+
+  /**
+   * 位置情報APIクラス
+   */
   geolocation: GeolocationService;
+
+  /**
+   * Leafletで利用者のいる位置に描画するマーカー
+   */
   marker?: Leaflet.Marker<any>;
+
+  /**
+   * 現在の利用者のいる座標
+   */
   nowCoordinates?: Coordinates;
+
+  /**
+   * Leafletで利用者が通ってきた経路に描画する線
+   */
   walkedPath?: Leaflet.Polyline;
-  mapLoadCount: number = 0;
+
+  /** 
+   * デバッグ用に使用する位置情報を読み込んだ回数
+   */
+  geolocateLoadCount: number = 0;
 
   constructor(private readonly geolocation$: GeolocationService) {
     this.geolocation = geolocation$;
     this.geolocation.subscribe((position) => {
-      this.updateNowCoordinates(position);
+      this.setNowCoordinates(position);
       this.updateMapView();
     });
   }
@@ -32,7 +55,7 @@ export class MapComponent implements OnInit {
    * 現在の使用者の位置情報を更新する
    * @param position Geolocation APIから取得した位置情報
    */
-  updateNowCoordinates(position: GeolocationPosition) {
+  setNowCoordinates(position: GeolocationPosition) {
     this.nowCoordinates = new Coordinates(
       position.coords.latitude,
       position.coords.longitude
@@ -54,7 +77,7 @@ export class MapComponent implements OnInit {
       this.addWalkedPathVertex(this.nowCoordinates);
     }
 
-    this.mapLoadCount++;
+    this.geolocateLoadCount++;
   }
 
   /**
