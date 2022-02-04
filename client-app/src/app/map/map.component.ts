@@ -69,6 +69,11 @@ export class MapComponent implements OnInit {
     return this.svgRootElement.selectAll<SVGCircleElement, number>('circle');
   }
 
+  private get maskCircleSize(){
+    if(this.map === undefined) return 0;
+    return Math.pow(2, this.map.getZoom()-10);
+  }
+
   constructor(private readonly geolocation$: GeolocationService) {
     this.geolocation = geolocation$;
     this.geolocation.subscribe((position) => {
@@ -248,6 +253,11 @@ export class MapComponent implements OnInit {
       );
       D3.select(elms[n]).attr('x', data.x - (this.mapWidth + this.maskMargin)/2).attr('y', data.y - (this.mapWidth + this.maskMargin)/2);
     })
+
+    this.maskLayer?.selectAll('circle').each((d, n, elms) => {
+      if(this.map === undefined || this.nowCoordinates === undefined) return;
+      D3.select(elms[n]).attr('r', this.maskCircleSize);
+    })
   }
 
   /**
@@ -376,7 +386,7 @@ export class MapComponent implements OnInit {
         .append('circle')
         .attr('cx', (d) => d.x)
         .attr('cy', (d) => d.y)
-        .attr('r', 50);
+        .attr('r', this.maskCircleSize);
     }
   }
 
