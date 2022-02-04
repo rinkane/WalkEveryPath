@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { GeolocationService } from '@ng-web-apis/geolocation';
 import { Coordinates } from '../shared/model/Coordinates';
-import { Position } from '../shared/model/Position'
+import { Position } from '../shared/model/Position';
 import * as Leaflet from 'leaflet';
 import * as D3 from 'd3';
 
@@ -53,21 +53,19 @@ export class MapComponent implements OnInit {
 
   svgLayer?: D3.Selection<SVGSVGElement, unknown, null, undefined>;
   plotLayer?: D3.Selection<SVGGElement, unknown, null, undefined>;
+  defsLayer?: D3.Selection<SVGGElement, unknown, null, undefined>;
+  maskLayer?: D3.Selection<SVGMaskElement, unknown, null, undefined>;
+
+  maskMargin: number = 1000000;
 
   readonly mapWidth: number = 600;
   readonly mapHeight: number = 480;
 
   private get svgRootElement() {
-    console.log('polygonSVG');
-    console.log(D3.select('polygonSVG'));
     return D3.select('polygonSVG');
   }
 
   private get svgCircleElements() {
-    console.log('CircleElements');
-    console.log(
-      this.svgRootElement.selectAll<SVGCircleElement, number>('circle')
-    );
     return this.svgRootElement.selectAll<SVGCircleElement, number>('circle');
   }
 
@@ -174,19 +172,32 @@ export class MapComponent implements OnInit {
       .attr('class', 'leaflet-zoom-hide');
     this.plotLayer = this.svgLayer?.append('g').attr('id', 'polygonSVG');
 
+    this.defsLayer = this.plotLayer.append('defs');
+    this.maskLayer = this.defsLayer.append('mask').attr('id', 'mask');
+
+    this.maskLayer
+      .data([new Position(this.map.getCenter().lat, this.map.getCenter().lng, this.map.latLngToLayerPoint([this.map.getCenter().lat, this.map.getCenter().lng]))])
+      .append('rect')
+      .attr('class', 'rect')
+      .attr('x', (d) => d.x - (this.mapWidth + this.maskMargin)/2)
+      .attr('y', (d) => d.y - (this.mapWidth + this.maskMargin)/2)
+      .attr('width', this.mapWidth + this.maskMargin)
+      .attr('height', this.mapHeight + this.maskMargin)
+      .style('opacity', 1)
+      .style('fill', 'white');
+
     this.plotLayer
-      .selectAll('circles') // 追加されたデータを表示に反映
-      .data([
-        new Position(50, 100, this.map.layerPointToLatLng([50, 100])),
-        new Position(100, 200, this.map.layerPointToLatLng([100, 200])),
-        new Position(200, 300, this.map.layerPointToLatLng([200, 300]))
-      ])
+      .selectAll('rects')
+      .data([new Position(90, 90, this.map.latLngToLayerPoint([90, 90]))])
       .enter()
-      .append('circle') // 更新されたデータを表示に反映
-      .attr('cx', d => d.x) //   cx  : 円のx座標を設定
-      .attr('cy', d => d.y) //   cy  : 円のy座標を設定
-      .attr('r', 50) //   r   : 円の半径を設定
-      .attr('fill', 'green'); //   fill: 円の背景色を設定
+      .append('rect')
+      .attr('id', 'mask-rect')
+      .attr('x', (d) => d.x)
+      .attr('y', (d) => d.y)
+      .attr('width', 10000000)
+      .attr('height', 10000000)
+      .attr('mask', 'url(#mask)')
+      .attr('fill', 'white');
   }
 
   /**
@@ -205,7 +216,6 @@ export class MapComponent implements OnInit {
     var topLeft = this.map.latLngToLayerPoint(bounds.getNorthWest());
     var bottomRight = this.map.latLngToLayerPoint(bounds.getSouthEast());
 
-    console.log(topLeft);
     this.svgLayer
       .attr('width', bottomRight.x - topLeft.x)
       .attr('height', bottomRight.y - topLeft.y)
@@ -218,10 +228,25 @@ export class MapComponent implements OnInit {
     );
 
     this.plotLayer.selectAll('circle').each((d, n, elms) => {
-      if(this.map === undefined) return;
+      if (this.map === undefined) return;
       const data = d as Position;
-      data.setLayerPoint(this.map.latLngToLayerPoint(new Leaflet.LatLng(data.latitude, data.longitude)));
+      data.setLayerPoint(
+        this.map.latLngToLayerPoint(
+          new Leaflet.LatLng(data.latitude, data.longitude)
+        )
+      );
       D3.select(elms[n]).attr('cx', data.x).attr('cy', data.y);
+    });
+
+    this.maskLayer?.selectAll('rect').each((d, n, elms) => {
+      if (this.map === undefined || this.nowCoordinates === undefined) return;
+      const data = d as Position;
+      data.setLayerPoint(
+        this.map.latLngToLayerPoint(
+          new Leaflet.LatLng(this.nowCoordinates.latitude, this.nowCoordinates.longitude)
+        )
+      );
+      D3.select(elms[n]).attr('x', data.x - (this.mapWidth + this.maskMargin)/2).attr('y', data.y - (this.mapWidth + this.maskMargin)/2);
     })
   }
 
@@ -307,32 +332,51 @@ export class MapComponent implements OnInit {
 
   addWalkedPolygon(coordinates: Coordinates) {
     const polygonSize = 0.001;
-    if (this.map !== undefined) {
-      Leaflet.polygon(
-        [
-          [
-            coordinates.latitude + polygonSize,
-            coordinates.longitude + polygonSize,
-          ],
-          [
-            coordinates.latitude - polygonSize,
-            coordinates.longitude + polygonSize,
-          ],
-          [
-            coordinates.latitude - polygonSize,
-            coordinates.longitude - polygonSize,
-          ],
-          [
-            coordinates.latitude + polygonSize,
-            coordinates.longitude - polygonSize,
-          ],
-        ],
-        {
-          color: 'white',
-          opacity: 0.2,
-          fillColor: 'white',
-        }
-      ).addTo(this.map);
+    if (
+      this.map !== undefined &&
+      this.plotLayer !== undefined &&
+      this.maskLayer !== undefined &&
+      this.nowCoordinates !== undefined
+    ) {
+      const LeftUp = new Position(
+        this.nowCoordinates.latitude - polygonSize,
+        this.nowCoordinates.longitude - polygonSize,
+        this.map.latLngToLayerPoint([
+          this.nowCoordinates.latitude - polygonSize,
+          this.nowCoordinates.longitude - polygonSize,
+        ])
+      );
+      const LeftDown = new Position(
+        this.nowCoordinates.latitude + polygonSize,
+        this.nowCoordinates.longitude - polygonSize,
+        this.map.latLngToLayerPoint([
+          this.nowCoordinates.latitude + polygonSize,
+          this.nowCoordinates.longitude - polygonSize,
+        ])
+      );
+      const RightDown = new Position(
+        this.nowCoordinates.latitude + polygonSize,
+        this.nowCoordinates.longitude + polygonSize,
+        this.map.latLngToLayerPoint([
+          this.nowCoordinates.latitude + polygonSize,
+          this.nowCoordinates.longitude + polygonSize,
+        ])
+      );
+      const RightUp = new Position(
+        this.nowCoordinates.latitude - polygonSize,
+        this.nowCoordinates.longitude + polygonSize,
+        this.map.latLngToLayerPoint([
+          this.nowCoordinates.latitude - polygonSize,
+          this.nowCoordinates.longitude + polygonSize,
+        ])
+      );
+
+      this.maskLayer
+        .data([new Position(this.nowCoordinates.latitude, this.nowCoordinates.longitude, this.map.latLngToLayerPoint([this.nowCoordinates.latitude, this.nowCoordinates.longitude]))])
+        .append('circle')
+        .attr('cx', (d) => d.x)
+        .attr('cy', (d) => d.y)
+        .attr('r', 50);
     }
   }
 
