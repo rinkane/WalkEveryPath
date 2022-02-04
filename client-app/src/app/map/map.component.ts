@@ -51,25 +51,46 @@ export class MapComponent implements OnInit {
    */
   isTrackingUser: boolean = false;
 
+  /**
+   * SVG全体をまとめるレイヤー
+   */
   svgLayer?: D3.Selection<SVGSVGElement, unknown, null, undefined>;
+
+  /**
+   * 地図に描画するSVGを配置するレイヤー
+   */
   plotLayer?: D3.Selection<SVGGElement, unknown, null, undefined>;
+
+  /**
+   * 定義するだけで描画はしないSVGを配置するレイヤー
+   */
   defsLayer?: D3.Selection<SVGGElement, unknown, null, undefined>;
+
+  /**
+   * 地図に描画しているSVGをマスクするSVGを配置するレイヤー
+   */
   maskLayer?: D3.Selection<SVGMaskElement, unknown, null, undefined>;
 
+  /**
+   * 地図全体をマスクするSVGを画面外にどれだけ描画するかを表すマージン
+   * TODO: とりあえず地図スクロール時に画面端がスクロール中マスクされなくなるのを防ぐために暫定で用意している
+   */
   maskMargin: number = 1000000;
 
+  /**
+   * 地図の横幅
+   */
   readonly mapWidth: number = 600;
+
+  /**
+   * 地図の縦幅
+   */
   readonly mapHeight: number = 480;
 
-  private get svgRootElement() {
-    return D3.select('polygonSVG');
-  }
-
-  private get svgCircleElements() {
-    return this.svgRootElement.selectAll<SVGCircleElement, number>('circle');
-  }
-
-  private get maskCircleSize() {
+  /**
+   * マスクさせないために定義する円形のSVGの直径
+   */
+  private get unmaskCircleSize() {
     if (this.map === undefined) return 0;
     return Math.pow(2, this.map.getZoom() - 10);
   }
@@ -114,6 +135,7 @@ export class MapComponent implements OnInit {
    */
   updateMapView(coordinates: Coordinates | undefined) {
     if (coordinates !== undefined) {
+      // 地図がまだ読み込まれていない場合
       if (this.map === undefined) {
         this.showMap(coordinates);
         this.putMarker(coordinates);
@@ -147,7 +169,14 @@ export class MapComponent implements OnInit {
     }).addTo(this.map);
 
     this.drawInitSVG();
+    this.addMapEventListener();
+  }
 
+  /**
+   * 地図のクリック、ズーム・移動などのイベント受け取り時の処理を追加する
+   */
+  addMapEventListener(){
+    if(this.map === undefined) return;
     this.map.on('click', (e: Leaflet.LeafletMouseEvent) => {
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
@@ -311,7 +340,7 @@ export class MapComponent implements OnInit {
   updateUnMaskedArea() {
     this.maskLayer?.selectAll('circle').each((d, n, elms) => {
       if (this.map === undefined || this.nowCoordinates === undefined) return;
-      D3.select(elms[n]).attr('r', this.maskCircleSize);
+      D3.select(elms[n]).attr('r', this.unmaskCircleSize);
     });
   }
 
@@ -420,7 +449,7 @@ export class MapComponent implements OnInit {
         .append('circle')
         .attr('cx', (d) => d.x)
         .attr('cy', (d) => d.y)
-        .attr('r', this.maskCircleSize);
+        .attr('r', this.unmaskCircleSize);
     }
   }
 
