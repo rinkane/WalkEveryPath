@@ -69,9 +69,9 @@ export class MapComponent implements OnInit {
     return this.svgRootElement.selectAll<SVGCircleElement, number>('circle');
   }
 
-  private get maskCircleSize(){
-    if(this.map === undefined) return 0;
-    return Math.pow(2, this.map.getZoom()-10);
+  private get maskCircleSize() {
+    if (this.map === undefined) return 0;
+    return Math.pow(2, this.map.getZoom() - 10);
   }
 
   constructor(private readonly geolocation$: GeolocationService) {
@@ -176,8 +176,8 @@ export class MapComponent implements OnInit {
   /**
    * SVGを描画するレイヤーの初期化、タグの作成を行う
    */
-  initLayer(){
-    if(this.map === undefined) return;
+  initLayer() {
+    if (this.map === undefined) return;
     this.svgLayer = D3.select(this.map.getPanes().overlayPane)
       .append('svg')
       .attr('width', this.mapWidth)
@@ -192,44 +192,70 @@ export class MapComponent implements OnInit {
   /**
    * マスク処理を行うSVGを初期化する
    */
-  initMask(){
-    if(this.map === undefined || this.maskLayer === undefined || this.plotLayer === undefined) return;
+  initMask() {
+    if (
+      this.map === undefined ||
+      this.maskLayer === undefined ||
+      this.plotLayer === undefined
+    )
+      return;
     this.maskLayer
-    .data([new Position(this.map.getCenter().lat, this.map.getCenter().lng, this.map.latLngToLayerPoint([this.map.getCenter().lat, this.map.getCenter().lng]))])
-    .append('rect')
-    .attr('class', 'rect')
-    .attr('x', (d) => d.x - (this.mapWidth + this.maskMargin)/2)
-    .attr('y', (d) => d.y - (this.mapWidth + this.maskMargin)/2)
-    .attr('width', this.mapWidth + this.maskMargin)
-    .attr('height', this.mapHeight + this.maskMargin)
-    .style('opacity', 1)
-    .style('fill', 'white');
+      .data([
+        new Position(
+          this.map.getCenter().lat,
+          this.map.getCenter().lng,
+          this.map.latLngToLayerPoint([
+            this.map.getCenter().lat,
+            this.map.getCenter().lng,
+          ])
+        ),
+      ])
+      .append('rect')
+      .attr('class', 'rect')
+      .attr('x', (d) => d.x - (this.mapWidth + this.maskMargin) / 2)
+      .attr('y', (d) => d.y - (this.mapWidth + this.maskMargin) / 2)
+      .attr('width', this.mapWidth + this.maskMargin)
+      .attr('height', this.mapHeight + this.maskMargin)
+      .style('opacity', 1)
+      .style('fill', 'white');
 
-  this.plotLayer
-    .selectAll('rects')
-    .data([new Position(this.map.getCenter().lat, this.map.getCenter().lng, this.map.latLngToLayerPoint([this.map.getCenter().lat, this.map.getCenter().lng]))])
-    .enter()
-    .append('rect')
-    .attr('id', 'mask-rect')
-    .attr('x', (d) => d.x - (this.mapWidth + this.maskMargin)/2)
-    .attr('y', (d) => d.y - (this.mapWidth + this.maskMargin)/2)
-    .attr('width', this.mapWidth + this.maskMargin)
-    .attr('height', this.mapHeight + this.maskMargin)
-    .attr('mask', 'url(#mask)')
-    .attr('fill', 'gray');
+    this.plotLayer
+      .selectAll('rects')
+      .data([
+        new Position(
+          this.map.getCenter().lat,
+          this.map.getCenter().lng,
+          this.map.latLngToLayerPoint([
+            this.map.getCenter().lat,
+            this.map.getCenter().lng,
+          ])
+        ),
+      ])
+      .enter()
+      .append('rect')
+      .attr('id', 'mask-rect')
+      .attr('x', (d) => d.x - (this.mapWidth + this.maskMargin) / 2)
+      .attr('y', (d) => d.y - (this.mapWidth + this.maskMargin) / 2)
+      .attr('width', this.mapWidth + this.maskMargin)
+      .attr('height', this.mapHeight + this.maskMargin)
+      .attr('mask', 'url(#mask)')
+      .attr('fill', 'gray');
   }
 
   /**
    * 地図移動時に毎回実行するSVGレイヤー更新処理
    */
   drawUpdateSVGLayer() {
-    if (
-      this.map === undefined ||
-      this.svgLayer === undefined ||
-      this.plotLayer === undefined
-    ) {
-      return;
-    }
+    this.updateLayer();
+    this.updateMask();
+    this.updateUnMaskedArea();
+  }
+
+  /**
+   * 地図にSVGを描画するレイヤーを更新する
+   */
+  updateLayer() {
+    if (this.map === undefined || this.svgLayer === undefined || this.plotLayer === undefined) return;
 
     var bounds = this.map.getBounds();
     var topLeft = this.map.latLngToLayerPoint(bounds.getNorthWest());
@@ -245,44 +271,53 @@ export class MapComponent implements OnInit {
       'transform',
       'translate(' + -topLeft.x + ',' + -topLeft.y + ')'
     );
+  }
 
-    this.plotLayer.selectAll('circle').each((d, n, elms) => {
-      if (this.map === undefined) return;
-      const data = d as Position;
-      data.setLayerPoint(
-        this.map.latLngToLayerPoint(
-          new Leaflet.LatLng(data.latitude, data.longitude)
-        )
-      );
-      D3.select(elms[n]).attr('cx', data.x).attr('cy', data.y);
-    });
-
+  /**
+   * マスクするSVGの描画を更新する
+   */
+  updateMask() {
     this.maskLayer?.selectAll('rect').each((d, n, elms) => {
       if (this.map === undefined || this.nowCoordinates === undefined) return;
       const data = d as Position;
       data.setLayerPoint(
         this.map.latLngToLayerPoint(
-          new Leaflet.LatLng(this.nowCoordinates.latitude, this.nowCoordinates.longitude)
+          new Leaflet.LatLng(
+            this.nowCoordinates.latitude,
+            this.nowCoordinates.longitude
+          )
         )
       );
-      D3.select(elms[n]).attr('x', data.x - (this.mapWidth + this.maskMargin)/2).attr('y', data.y - (this.mapWidth + this.maskMargin)/2);
-    })
+      D3.select(elms[n])
+        .attr('x', data.x - (this.mapWidth + this.maskMargin) / 2)
+        .attr('y', data.y - (this.mapWidth + this.maskMargin) / 2);
+    });
 
     this.plotLayer?.selectAll('rect').each((d, n, elms) => {
       if (this.map === undefined || this.nowCoordinates === undefined) return;
       const data = d as Position;
       data.setLayerPoint(
         this.map.latLngToLayerPoint(
-          new Leaflet.LatLng(this.nowCoordinates.latitude, this.nowCoordinates.longitude)
+          new Leaflet.LatLng(
+            this.nowCoordinates.latitude,
+            this.nowCoordinates.longitude
+          )
         )
       );
-      D3.select(elms[n]).attr('x', data.x - (this.mapWidth + this.maskMargin)/2).attr('y', data.y - (this.mapWidth + this.maskMargin)/2);
-    })
+      D3.select(elms[n])
+        .attr('x', data.x - (this.mapWidth + this.maskMargin) / 2)
+        .attr('y', data.y - (this.mapWidth + this.maskMargin) / 2);
+    });
+  }
 
+  /**
+   * マスクしない領域をしめすSVGの描画を更新する
+   */
+  updateUnMaskedArea() {
     this.maskLayer?.selectAll('circle').each((d, n, elms) => {
-      if(this.map === undefined || this.nowCoordinates === undefined) return;
+      if (this.map === undefined || this.nowCoordinates === undefined) return;
       D3.select(elms[n]).attr('r', this.maskCircleSize);
-    })
+    });
   }
 
   /**
@@ -407,7 +442,16 @@ export class MapComponent implements OnInit {
       );
 
       this.maskLayer
-        .data([new Position(this.nowCoordinates.latitude, this.nowCoordinates.longitude, this.map.latLngToLayerPoint([this.nowCoordinates.latitude, this.nowCoordinates.longitude]))])
+        .data([
+          new Position(
+            this.nowCoordinates.latitude,
+            this.nowCoordinates.longitude,
+            this.map.latLngToLayerPoint([
+              this.nowCoordinates.latitude,
+              this.nowCoordinates.longitude,
+            ])
+          ),
+        ])
         .append('circle')
         .attr('cx', (d) => d.x)
         .attr('cy', (d) => d.y)
