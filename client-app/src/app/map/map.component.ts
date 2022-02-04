@@ -169,7 +169,15 @@ export class MapComponent implements OnInit {
     if (this.map === undefined) {
       return;
     }
+    this.initLayer();
+    this.initMask();
+  }
 
+  /**
+   * SVGを描画するレイヤーの初期化、タグの作成を行う
+   */
+  initLayer(){
+    if(this.map === undefined) return;
     this.svgLayer = D3.select(this.map.getPanes().overlayPane)
       .append('svg')
       .attr('width', this.mapWidth)
@@ -179,30 +187,36 @@ export class MapComponent implements OnInit {
 
     this.defsLayer = this.plotLayer.append('defs');
     this.maskLayer = this.defsLayer.append('mask').attr('id', 'mask');
+  }
 
+  /**
+   * マスク処理を行うSVGを初期化する
+   */
+  initMask(){
+    if(this.map === undefined || this.maskLayer === undefined || this.plotLayer === undefined) return;
     this.maskLayer
-      .data([new Position(this.map.getCenter().lat, this.map.getCenter().lng, this.map.latLngToLayerPoint([this.map.getCenter().lat, this.map.getCenter().lng]))])
-      .append('rect')
-      .attr('class', 'rect')
-      .attr('x', (d) => d.x - (this.mapWidth + this.maskMargin)/2)
-      .attr('y', (d) => d.y - (this.mapWidth + this.maskMargin)/2)
-      .attr('width', this.mapWidth + this.maskMargin)
-      .attr('height', this.mapHeight + this.maskMargin)
-      .style('opacity', 1)
-      .style('fill', 'white');
+    .data([new Position(this.map.getCenter().lat, this.map.getCenter().lng, this.map.latLngToLayerPoint([this.map.getCenter().lat, this.map.getCenter().lng]))])
+    .append('rect')
+    .attr('class', 'rect')
+    .attr('x', (d) => d.x - (this.mapWidth + this.maskMargin)/2)
+    .attr('y', (d) => d.y - (this.mapWidth + this.maskMargin)/2)
+    .attr('width', this.mapWidth + this.maskMargin)
+    .attr('height', this.mapHeight + this.maskMargin)
+    .style('opacity', 1)
+    .style('fill', 'white');
 
-    this.plotLayer
-      .selectAll('rects')
-      .data([new Position(90, 90, this.map.latLngToLayerPoint([90, 90]))])
-      .enter()
-      .append('rect')
-      .attr('id', 'mask-rect')
-      .attr('x', (d) => d.x)
-      .attr('y', (d) => d.y)
-      .attr('width', 10000000)
-      .attr('height', 10000000)
-      .attr('mask', 'url(#mask)')
-      .attr('fill', 'gray');
+  this.plotLayer
+    .selectAll('rects')
+    .data([new Position(this.map.getCenter().lat, this.map.getCenter().lng, this.map.latLngToLayerPoint([this.map.getCenter().lat, this.map.getCenter().lng]))])
+    .enter()
+    .append('rect')
+    .attr('id', 'mask-rect')
+    .attr('x', (d) => d.x - (this.mapWidth + this.maskMargin)/2)
+    .attr('y', (d) => d.y - (this.mapWidth + this.maskMargin)/2)
+    .attr('width', this.mapWidth + this.maskMargin)
+    .attr('height', this.mapHeight + this.maskMargin)
+    .attr('mask', 'url(#mask)')
+    .attr('fill', 'gray');
   }
 
   /**
@@ -244,6 +258,17 @@ export class MapComponent implements OnInit {
     });
 
     this.maskLayer?.selectAll('rect').each((d, n, elms) => {
+      if (this.map === undefined || this.nowCoordinates === undefined) return;
+      const data = d as Position;
+      data.setLayerPoint(
+        this.map.latLngToLayerPoint(
+          new Leaflet.LatLng(this.nowCoordinates.latitude, this.nowCoordinates.longitude)
+        )
+      );
+      D3.select(elms[n]).attr('x', data.x - (this.mapWidth + this.maskMargin)/2).attr('y', data.y - (this.mapWidth + this.maskMargin)/2);
+    })
+
+    this.plotLayer?.selectAll('rect').each((d, n, elms) => {
       if (this.map === undefined || this.nowCoordinates === undefined) return;
       const data = d as Position;
       data.setLayerPoint(
