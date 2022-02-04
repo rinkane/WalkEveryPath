@@ -1,4 +1,4 @@
-<div *ngIf="nowCoordinates !== undefined; else loading" id="map"></div>
+<div *ngIf="nowCoordinates !== undefined; else loading" id="map" [attr.width.px]="mapWidth" [attr.height.px]="mapHeight"></div>
 <ng-template #loading>
   Now Loading...
 </ng-template>

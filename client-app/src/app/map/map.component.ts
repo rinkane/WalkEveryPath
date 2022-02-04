@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
-import * as Leaflet from 'leaflet';
 import { GeolocationService } from '@ng-web-apis/geolocation';
 import { Coordinates } from '../shared/model/Coordinates';
+import * as Leaflet from 'leaflet';
+import * as D3 from 'd3';
 
 @Component({
   selector: 'app-map',
@@ -49,9 +50,30 @@ export class MapComponent implements OnInit {
    */
   isTrackingUser: boolean = false;
 
+  svgLayer?: D3.Selection<SVGSVGElement, unknown, null, undefined>;
+  plotLayer?: D3.Selection<SVGGElement, unknown, null, undefined>;
+
+  readonly mapWidth: number = 600;
+  readonly mapHeight: number = 480;
+
+  private get svgRootElement() {
+    console.log('polygonSVG');
+    console.log(D3.select('polygonSVG'));
+    return D3.select('polygonSVG');
+  }
+
+  private get svgCircleElements() {
+    console.log('CircleElements');
+    console.log(
+      this.svgRootElement.selectAll<SVGCircleElement, number>('circle')
+    );
+    return this.svgRootElement.selectAll<SVGCircleElement, number>('circle');
+  }
+
   constructor(private readonly geolocation$: GeolocationService) {
     this.geolocation = geolocation$;
     this.geolocation.subscribe((position) => {
+      console.log('subscribe geo');
       this.setNowCoordinatesFromGeoPos(position);
       this.updateMapView(this.nowCoordinates);
     });
@@ -86,7 +108,7 @@ export class MapComponent implements OnInit {
   /**
    * マップの表示を更新する
    */
-  updateMapView(coordinates: Coordinates | undefined): void {
+  updateMapView(coordinates: Coordinates | undefined) {
     if (coordinates !== undefined) {
       if (this.map === undefined) {
         this.showMap(coordinates);
@@ -108,9 +130,8 @@ export class MapComponent implements OnInit {
    * ページ上に地図を表示する
    * @param coordinates 使用者の座標
    */
-  showMap(coordinates: Coordinates): void {
+  showMap(coordinates: Coordinates){
     const zoom = 15;
-
     this.map = Leaflet.map('map').setView(
       [coordinates.latitude, coordinates.longitude],
       zoom
@@ -120,6 +141,22 @@ export class MapComponent implements OnInit {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(this.map);
+
+    this.svgLayer = D3.select(this.map.getPanes().overlayPane)
+      .append('svg')
+      .attr('width', this.mapWidth)
+      .attr('height', this.mapHeight)
+      .attr('class', 'leaflet-zoom-hide');
+    this.plotLayer = this.svgLayer?.append('g').attr('id', 'polygonSVG');
+
+    this.plotLayer.selectAll('circles') // 追加されたデータを表示に反映
+      .data([10, 5, 20])
+      .enter()
+      .append('circle') // 更新されたデータを表示に反映
+      .attr('cx', (_, i) => i * 200 + 200) //   cx  : 円のx座標を設定
+      .attr('cy', 100) //   cy  : 円のy座標を設定
+      .attr('r', d => d*5) //   r   : 円の半径を設定
+      .attr('fill', 'green'); //   fill: 円の背景色を設定
 
     this.map.on('click', (e: Leaflet.LeafletMouseEvent) => {
       const lat = e.latlng.lat;
@@ -142,6 +179,7 @@ export class MapComponent implements OnInit {
         color: 'blue',
         weight: 3,
       }).addTo(this.map);
+      D3.select('map').data();
     }
   }
 
@@ -149,9 +187,11 @@ export class MapComponent implements OnInit {
    * これまで通ってきた経路が点だった場合、つまり移動していない場合、
    * その経路を地図から削除する
    */
-  removeIfWalkedPathIsPoint(){
-    if(this.walkedPath?.getLatLngs().length !== undefined && 
-    this.walkedPath?.getLatLngs().length < 2){
+  removeIfWalkedPathIsPoint() {
+    if (
+      this.walkedPath?.getLatLngs().length !== undefined &&
+      this.walkedPath?.getLatLngs().length < 2
+    ) {
       this.map?.removeLayer(this.walkedPath);
     }
   }
@@ -202,9 +242,40 @@ export class MapComponent implements OnInit {
    * @param coordinates 使用者の座標
    */
   addWalkedPathVertex(coordinates: Coordinates | undefined) {
-    if (this.isTrackingUser == true && 
-        coordinates !== undefined) {
+    if (this.isTrackingUser == true && coordinates !== undefined) {
       this.walkedPath?.addLatLng([coordinates.latitude, coordinates.longitude]);
+      this.addWalkedPolygon(coordinates);
+    }
+  }
+
+  addWalkedPolygon(coordinates: Coordinates) {
+    const polygonSize = 0.001;
+    if (this.map !== undefined) {
+      Leaflet.polygon(
+        [
+          [
+            coordinates.latitude + polygonSize,
+            coordinates.longitude + polygonSize,
+          ],
+          [
+            coordinates.latitude - polygonSize,
+            coordinates.longitude + polygonSize,
+          ],
+          [
+            coordinates.latitude - polygonSize,
+            coordinates.longitude - polygonSize,
+          ],
+          [
+            coordinates.latitude + polygonSize,
+            coordinates.longitude - polygonSize,
+          ],
+        ],
+        {
+          color: 'white',
+          opacity: 0.2,
+          fillColor: 'white',
+        }
+      ).addTo(this.map);
     }
   }
 
