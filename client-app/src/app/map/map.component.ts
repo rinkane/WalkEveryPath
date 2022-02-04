@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { GeolocationService } from '@ng-web-apis/geolocation';
 import { Coordinates } from '../shared/model/Coordinates';
+import { Position } from '../shared/model/Position'
 import * as Leaflet from 'leaflet';
 import * as D3 from 'd3';
 
@@ -130,7 +131,7 @@ export class MapComponent implements OnInit {
    * ページ上に地図を表示する
    * @param coordinates 使用者の座標
    */
-  showMap(coordinates: Coordinates){
+  showMap(coordinates: Coordinates) {
     const zoom = 15;
     this.map = Leaflet.map('map').setView(
       [coordinates.latitude, coordinates.longitude],
@@ -142,21 +143,7 @@ export class MapComponent implements OnInit {
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(this.map);
 
-    this.svgLayer = D3.select(this.map.getPanes().overlayPane)
-      .append('svg')
-      .attr('width', this.mapWidth)
-      .attr('height', this.mapHeight)
-      .attr('class', 'leaflet-zoom-hide');
-    this.plotLayer = this.svgLayer?.append('g').attr('id', 'polygonSVG');
-
-    this.plotLayer.selectAll('circles') // 追加されたデータを表示に反映
-      .data([10, 5, 20])
-      .enter()
-      .append('circle') // 更新されたデータを表示に反映
-      .attr('cx', (_, i) => i * 200 + 200) //   cx  : 円のx座標を設定
-      .attr('cy', 100) //   cy  : 円のy座標を設定
-      .attr('r', d => d*5) //   r   : 円の半径を設定
-      .attr('fill', 'green'); //   fill: 円の背景色を設定
+    this.drawInitSVG();
 
     this.map.on('click', (e: Leaflet.LeafletMouseEvent) => {
       const lat = e.latlng.lat;
@@ -166,6 +153,76 @@ export class MapComponent implements OnInit {
         this.updateMapView(new Coordinates(lat, lng));
       }
     });
+
+    this.map.on('move', () => {
+      this.drawUpdateSVGLayer();
+    });
+  }
+
+  /**
+   * 地図表示時に1回だけ実行するSVG描画処理
+   */
+  drawInitSVG() {
+    if (this.map === undefined) {
+      return;
+    }
+
+    this.svgLayer = D3.select(this.map.getPanes().overlayPane)
+      .append('svg')
+      .attr('width', this.mapWidth)
+      .attr('height', this.mapHeight)
+      .attr('class', 'leaflet-zoom-hide');
+    this.plotLayer = this.svgLayer?.append('g').attr('id', 'polygonSVG');
+
+    this.plotLayer
+      .selectAll('circles') // 追加されたデータを表示に反映
+      .data([
+        new Position(50, 100, this.map.layerPointToLatLng([50, 100])),
+        new Position(100, 200, this.map.layerPointToLatLng([100, 200])),
+        new Position(200, 300, this.map.layerPointToLatLng([200, 300]))
+      ])
+      .enter()
+      .append('circle') // 更新されたデータを表示に反映
+      .attr('cx', d => d.x) //   cx  : 円のx座標を設定
+      .attr('cy', d => d.y) //   cy  : 円のy座標を設定
+      .attr('r', 50) //   r   : 円の半径を設定
+      .attr('fill', 'green'); //   fill: 円の背景色を設定
+  }
+
+  /**
+   * 地図移動時に毎回実行するSVGレイヤー更新処理
+   */
+  drawUpdateSVGLayer() {
+    if (
+      this.map === undefined ||
+      this.svgLayer === undefined ||
+      this.plotLayer === undefined
+    ) {
+      return;
+    }
+
+    var bounds = this.map.getBounds();
+    var topLeft = this.map.latLngToLayerPoint(bounds.getNorthWest());
+    var bottomRight = this.map.latLngToLayerPoint(bounds.getSouthEast());
+
+    console.log(topLeft);
+    this.svgLayer
+      .attr('width', bottomRight.x - topLeft.x)
+      .attr('height', bottomRight.y - topLeft.y)
+      .style('left', topLeft.x + 'px')
+      .style('top', topLeft.y + 'px');
+
+    this.plotLayer.attr(
+      'transform',
+      'translate(' + -topLeft.x + ',' + -topLeft.y + ')'
+    );
+
+    this.plotLayer.selectAll('circle').each((d, n, elms) => {
+      if(this.map === undefined) return;
+      const data = d as Position;
+      data.setLayerPoint(this.map.latLngToLayerPoint(new Leaflet.LatLng(data.latitude, data.longitude)));
+      D3.select(elms[n]).attr('cx', data.x).attr('cy', data.y);
+    })
   }
 
   /**
