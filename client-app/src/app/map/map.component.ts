@@ -193,12 +193,7 @@ export class MapComponent implements OnInit {
    * マスク処理を行うSVGを初期化する
    */
   initMask() {
-    if (
-      this.map === undefined ||
-      this.maskLayer === undefined ||
-      this.plotLayer === undefined
-    )
-      return;
+    if (this.map === undefined || this.maskLayer === undefined || this.plotLayer === undefined) return;
     this.maskLayer
       .data([
         new Position(
@@ -396,59 +391,29 @@ export class MapComponent implements OnInit {
   addWalkedPathVertex(coordinates: Coordinates | undefined) {
     if (this.isTrackingUser == true && coordinates !== undefined) {
       this.walkedPath?.addLatLng([coordinates.latitude, coordinates.longitude]);
-      this.addWalkedPolygon(coordinates);
+      this.addWalkedArea(coordinates);
     }
   }
 
-  addWalkedPolygon(coordinates: Coordinates) {
-    const polygonSize = 0.001;
+  /**
+   * 移動経路を表示するため、マスクを解除する領域を追加する
+   * @param coordinates 使用者の座標
+   */
+  addWalkedArea(coordinates: Coordinates) {
     if (
       this.map !== undefined &&
       this.plotLayer !== undefined &&
-      this.maskLayer !== undefined &&
-      this.nowCoordinates !== undefined
+      this.maskLayer !== undefined
     ) {
-      const LeftUp = new Position(
-        this.nowCoordinates.latitude - polygonSize,
-        this.nowCoordinates.longitude - polygonSize,
-        this.map.latLngToLayerPoint([
-          this.nowCoordinates.latitude - polygonSize,
-          this.nowCoordinates.longitude - polygonSize,
-        ])
-      );
-      const LeftDown = new Position(
-        this.nowCoordinates.latitude + polygonSize,
-        this.nowCoordinates.longitude - polygonSize,
-        this.map.latLngToLayerPoint([
-          this.nowCoordinates.latitude + polygonSize,
-          this.nowCoordinates.longitude - polygonSize,
-        ])
-      );
-      const RightDown = new Position(
-        this.nowCoordinates.latitude + polygonSize,
-        this.nowCoordinates.longitude + polygonSize,
-        this.map.latLngToLayerPoint([
-          this.nowCoordinates.latitude + polygonSize,
-          this.nowCoordinates.longitude + polygonSize,
-        ])
-      );
-      const RightUp = new Position(
-        this.nowCoordinates.latitude - polygonSize,
-        this.nowCoordinates.longitude + polygonSize,
-        this.map.latLngToLayerPoint([
-          this.nowCoordinates.latitude - polygonSize,
-          this.nowCoordinates.longitude + polygonSize,
-        ])
-      );
 
       this.maskLayer
         .data([
           new Position(
-            this.nowCoordinates.latitude,
-            this.nowCoordinates.longitude,
+            coordinates.latitude,
+            coordinates.longitude,
             this.map.latLngToLayerPoint([
-              this.nowCoordinates.latitude,
-              this.nowCoordinates.longitude,
+              coordinates.latitude,
+              coordinates.longitude,
             ])
           ),
         ])
