@@ -340,7 +340,13 @@ export class MapComponent implements OnInit {
   updateUnMaskedArea() {
     this.maskLayer?.selectAll('circle').each((d, n, elms) => {
       if (this.map === undefined || this.nowCoordinates === undefined) return;
-      D3.select(elms[n]).attr('r', this.unmaskCircleSize);
+      const data = d as Position;
+      data.setLayerPoint(
+        this.map.latLngToLayerPoint(
+          new Leaflet.LatLng(data.latitude, data.longitude)
+        )
+      );
+      D3.select(elms[n]).attr('r', this.unmaskCircleSize).attr('cx', data.x).attr('cy', data.y);
     });
   }
 
