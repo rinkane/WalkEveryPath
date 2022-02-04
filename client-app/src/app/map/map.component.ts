@@ -1,7 +1,9 @@
 import { Component, OnInit } from '@angular/core';
-import * as Leaflet from 'leaflet';
 import { GeolocationService } from '@ng-web-apis/geolocation';
 import { Coordinates } from '../shared/model/Coordinates';
+import { Position } from '../shared/model/Position';
+import * as Leaflet from 'leaflet';
+import * as D3 from 'd3';
 
 @Component({
   selector: 'app-map',
@@ -49,9 +51,54 @@ export class MapComponent implements OnInit {
    */
   isTrackingUser: boolean = false;
 
+  /**
+   * SVG全体をまとめるレイヤー
+   */
+  svgLayer?: D3.Selection<SVGSVGElement, unknown, null, undefined>;
+
+  /**
+   * 地図に描画するSVGを配置するレイヤー
+   */
+  plotLayer?: D3.Selection<SVGGElement, unknown, null, undefined>;
+
+  /**
+   * 定義するだけで描画はしないSVGを配置するレイヤー
+   */
+  defsLayer?: D3.Selection<SVGGElement, unknown, null, undefined>;
+
+  /**
+   * 地図に描画しているSVGをマスクするSVGを配置するレイヤー
+   */
+  maskLayer?: D3.Selection<SVGMaskElement, unknown, null, undefined>;
+
+  /**
+   * 地図全体をマスクするSVGを画面外にどれだけ描画するかを表すマージン
+   * TODO: とりあえず地図スクロール時に画面端がスクロール中マスクされなくなるのを防ぐために暫定で用意している
+   */
+  maskMargin: number = 1000000;
+
+  /**
+   * 地図の横幅
+   */
+  readonly mapWidth: number = 600;
+
+  /**
+   * 地図の縦幅
+   */
+  readonly mapHeight: number = 480;
+
+  /**
+   * マスクさせないために定義する円形のSVGの直径
+   */
+  private get unmaskCircleSize() {
+    if (this.map === undefined) return 0;
+    return Math.pow(2, this.map.getZoom() - 10);
+  }
+
   constructor(private readonly geolocation$: GeolocationService) {
     this.geolocation = geolocation$;
     this.geolocation.subscribe((position) => {
+      console.log('subscribe geo');
       this.setNowCoordinatesFromGeoPos(position);
       this.updateMapView(this.nowCoordinates);
     });
@@ -86,8 +133,9 @@ export class MapComponent implements OnInit {
   /**
    * マップの表示を更新する
    */
-  updateMapView(coordinates: Coordinates | undefined): void {
+  updateMapView(coordinates: Coordinates | undefined) {
     if (coordinates !== undefined) {
+      // 地図がまだ読み込まれていない場合
       if (this.map === undefined) {
         this.showMap(coordinates);
         this.putMarker(coordinates);
@@ -108,9 +156,8 @@ export class MapComponent implements OnInit {
    * ページ上に地図を表示する
    * @param coordinates 使用者の座標
    */
-  showMap(coordinates: Coordinates): void {
+  showMap(coordinates: Coordinates) {
     const zoom = 15;
-
     this.map = Leaflet.map('map').setView(
       [coordinates.latitude, coordinates.longitude],
       zoom
@@ -121,6 +168,15 @@ export class MapComponent implements OnInit {
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(this.map);
 
+    this.drawInitSVG();
+    this.addMapEventListener();
+  }
+
+  /**
+   * 地図のクリック、ズーム・移動などのイベント受け取り時の処理を追加する
+   */
+  addMapEventListener(){
+    if(this.map === undefined) return;
     this.map.on('click', (e: Leaflet.LeafletMouseEvent) => {
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
@@ -128,6 +184,169 @@ export class MapComponent implements OnInit {
         this.setNowCoordinatesFromCoordintates(new Coordinates(lat, lng));
         this.updateMapView(new Coordinates(lat, lng));
       }
+    });
+
+    this.map.on('move', () => {
+      this.drawUpdateSVGLayer();
+    });
+  }
+
+  /**
+   * 地図表示時に1回だけ実行するSVG描画処理
+   */
+  drawInitSVG() {
+    if (this.map === undefined) {
+      return;
+    }
+    this.initLayer();
+    this.initMask();
+  }
+
+  /**
+   * SVGを描画するレイヤーの初期化、タグの作成を行う
+   */
+  initLayer() {
+    if (this.map === undefined) return;
+    this.svgLayer = D3.select(this.map.getPanes().overlayPane)
+      .append('svg')
+      .attr('width', this.mapWidth)
+      .attr('height', this.mapHeight)
+      .attr('class', 'leaflet-zoom-hide');
+    this.plotLayer = this.svgLayer?.append('g').attr('id', 'polygonSVG');
+
+    this.defsLayer = this.plotLayer.append('defs');
+    this.maskLayer = this.defsLayer.append('mask').attr('id', 'mask');
+  }
+
+  /**
+   * マスク処理を行うSVGを初期化する
+   */
+  initMask() {
+    if (this.map === undefined || this.maskLayer === undefined || this.plotLayer === undefined) return;
+    this.maskLayer
+      .data([
+        new Position(
+          this.map.getCenter().lat,
+          this.map.getCenter().lng,
+          this.map.latLngToLayerPoint([
+            this.map.getCenter().lat,
+            this.map.getCenter().lng,
+          ])
+        ),
+      ])
+      .append('rect')
+      .attr('class', 'rect')
+      .attr('x', (d) => d.x - (this.mapWidth + this.maskMargin) / 2)
+      .attr('y', (d) => d.y - (this.mapWidth + this.maskMargin) / 2)
+      .attr('width', this.mapWidth + this.maskMargin)
+      .attr('height', this.mapHeight + this.maskMargin)
+      .style('opacity', 1)
+      .style('fill', 'white');
+
+    this.plotLayer
+      .selectAll('rects')
+      .data([
+        new Position(
+          this.map.getCenter().lat,
+          this.map.getCenter().lng,
+          this.map.latLngToLayerPoint([
+            this.map.getCenter().lat,
+            this.map.getCenter().lng,
+          ])
+        ),
+      ])
+      .enter()
+      .append('rect')
+      .attr('id', 'mask-rect')
+      .attr('x', (d) => d.x - (this.mapWidth + this.maskMargin) / 2)
+      .attr('y', (d) => d.y - (this.mapWidth + this.maskMargin) / 2)
+      .attr('width', this.mapWidth + this.maskMargin)
+      .attr('height', this.mapHeight + this.maskMargin)
+      .attr('mask', 'url(#mask)')
+      .attr('fill', 'gray');
+  }
+
+  /**
+   * 地図移動時に毎回実行するSVGレイヤー更新処理
+   */
+  drawUpdateSVGLayer() {
+    this.updateLayer();
+    this.updateMask();
+    this.updateUnMaskedArea();
+  }
+
+  /**
+   * 地図にSVGを描画するレイヤーを更新する
+   */
+  updateLayer() {
+    if (this.map === undefined || this.svgLayer === undefined || this.plotLayer === undefined) return;
+
+    var bounds = this.map.getBounds();
+    var topLeft = this.map.latLngToLayerPoint(bounds.getNorthWest());
+    var bottomRight = this.map.latLngToLayerPoint(bounds.getSouthEast());
+
+    this.svgLayer
+      .attr('width', bottomRight.x - topLeft.x)
+      .attr('height', bottomRight.y - topLeft.y)
+      .style('left', topLeft.x + 'px')
+      .style('top', topLeft.y + 'px');
+
+    this.plotLayer.attr(
+      'transform',
+      'translate(' + -topLeft.x + ',' + -topLeft.y + ')'
+    );
+  }
+
+  /**
+   * マスクするSVGの描画を更新する
+   */
+  updateMask() {
+    this.maskLayer?.selectAll('rect').each((d, n, elms) => {
+      if (this.map === undefined || this.nowCoordinates === undefined) return;
+      const data = d as Position;
+      data.setLayerPoint(
+        this.map.latLngToLayerPoint(
+          new Leaflet.LatLng(
+            this.nowCoordinates.latitude,
+            this.nowCoordinates.longitude
+          )
+        )
+      );
+      D3.select(elms[n])
+        .attr('x', data.x - (this.mapWidth + this.maskMargin) / 2)
+        .attr('y', data.y - (this.mapWidth + this.maskMargin) / 2);
+    });
+
+    this.plotLayer?.selectAll('rect').each((d, n, elms) => {
+      if (this.map === undefined || this.nowCoordinates === undefined) return;
+      const data = d as Position;
+      data.setLayerPoint(
+        this.map.latLngToLayerPoint(
+          new Leaflet.LatLng(
+            this.nowCoordinates.latitude,
+            this.nowCoordinates.longitude
+          )
+        )
+      );
+      D3.select(elms[n])
+        .attr('x', data.x - (this.mapWidth + this.maskMargin) / 2)
+        .attr('y', data.y - (this.mapWidth + this.maskMargin) / 2);
+    });
+  }
+
+  /**
+   * マスクしない領域をしめすSVGの描画を更新する
+   */
+  updateUnMaskedArea() {
+    this.maskLayer?.selectAll('circle').each((d, n, elms) => {
+      if (this.map === undefined || this.nowCoordinates === undefined) return;
+      const data = d as Position;
+      data.setLayerPoint(
+        this.map.latLngToLayerPoint(
+          new Leaflet.LatLng(data.latitude, data.longitude)
+        )
+      );
+      D3.select(elms[n]).attr('r', this.unmaskCircleSize).attr('cx', data.x).attr('cy', data.y);
     });
   }
 
@@ -142,6 +361,7 @@ export class MapComponent implements OnInit {
         color: 'blue',
         weight: 3,
       }).addTo(this.map);
+      D3.select('map').data();
     }
   }
 
@@ -149,9 +369,11 @@ export class MapComponent implements OnInit {
    * これまで通ってきた経路が点だった場合、つまり移動していない場合、
    * その経路を地図から削除する
    */
-  removeIfWalkedPathIsPoint(){
-    if(this.walkedPath?.getLatLngs().length !== undefined && 
-    this.walkedPath?.getLatLngs().length < 2){
+  removeIfWalkedPathIsPoint() {
+    if (
+      this.walkedPath?.getLatLngs().length !== undefined &&
+      this.walkedPath?.getLatLngs().length < 2
+    ) {
       this.map?.removeLayer(this.walkedPath);
     }
   }
@@ -202,9 +424,38 @@ export class MapComponent implements OnInit {
    * @param coordinates 使用者の座標
    */
   addWalkedPathVertex(coordinates: Coordinates | undefined) {
-    if (this.isTrackingUser == true && 
-        coordinates !== undefined) {
+    if (this.isTrackingUser == true && coordinates !== undefined) {
       this.walkedPath?.addLatLng([coordinates.latitude, coordinates.longitude]);
+      this.addWalkedArea(coordinates);
+    }
+  }
+
+  /**
+   * 移動経路を表示するため、マスクを解除する領域を追加する
+   * @param coordinates 使用者の座標
+   */
+  addWalkedArea(coordinates: Coordinates) {
+    if (
+      this.map !== undefined &&
+      this.plotLayer !== undefined &&
+      this.maskLayer !== undefined
+    ) {
+
+      this.maskLayer
+        .data([
+          new Position(
+            coordinates.latitude,
+            coordinates.longitude,
+            this.map.latLngToLayerPoint([
+              coordinates.latitude,
+              coordinates.longitude,
+            ])
+          ),
+        ])
+        .append('circle')
+        .attr('cx', (d) => d.x)
+        .attr('cy', (d) => d.y)
+        .attr('r', this.unmaskCircleSize);
     }
   }
 
