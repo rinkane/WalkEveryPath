@@ -197,7 +197,7 @@ export class MapComponent implements OnInit {
       .attr('width', 10000000)
       .attr('height', 10000000)
       .attr('mask', 'url(#mask)')
-      .attr('fill', 'white');
+      .attr('fill', 'gray');
   }
 
   /**
