@@ -206,8 +206,12 @@ export class MapComponent implements OnInit {
     });
 
     this.map.on('move', () => {
-      this.drawUpdateSVGLayer();
+      this.updateMoveSVGLayer();
     });
+
+    this.map.on('zoom', () => {
+      this.updateZoomSVGLayer();
+    })
   }
 
   /**
@@ -293,9 +297,15 @@ export class MapComponent implements OnInit {
   /**
    * 地図移動時に毎回実行するSVGレイヤー更新処理
    */
-  drawUpdateSVGLayer() {
+  updateMoveSVGLayer() {
     this.updateLayer();
     this.updateMask();
+  }
+
+  /**
+   * 地図ズーム時に毎回実行するSVGレイヤー更新処理
+   */
+  updateZoomSVGLayer() {
     this.updateUnMaskedArea();
   }
 
