@@ -368,7 +368,7 @@ export class MapComponent implements OnInit {
    */
   updateUnMaskedArea() {
     this.maskLayer?.selectAll('circle').each((d, n, elms) => {
-      if (this.map === undefined || this.nowCoordinates === undefined) return;
+      if (this.map === undefined) return;
       const data = d as Position;
       data.setLayerPoint(
         this.map.latLngToLayerPoint(
@@ -380,6 +380,20 @@ export class MapComponent implements OnInit {
         .attr('cx', data.x)
         .attr('cy', data.y);
     });
+
+    this.maskLayer?.selectAll('polygon').each((d, n, elms) => {
+      const data = d as Position[];
+        data.forEach((pos) => {
+          if(this.map === undefined) return;
+          pos.setLayerPoint(
+            this.map.latLngToLayerPoint(
+              new Leaflet.LatLng(pos.latitude, pos.longitude)
+            )
+          );
+          D3.select(elms[n])
+            .attr('points', this.createUnMaskPolygonPointsAttr(data));
+        })
+    })
   }
 
   /**
