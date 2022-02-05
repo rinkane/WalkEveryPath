@@ -98,9 +98,9 @@ export class MapComponent implements OnInit {
   constructor(private readonly geolocation$: GeolocationService) {
     this.geolocation = geolocation$;
     this.geolocation.subscribe((position) => {
-      console.log('subscribe geo');
+      const beforeCoordinates = this.createCoordinates(this.nowCoordinates);
       this.setNowCoordinatesFromGeoPos(position);
-      this.updateMapView(this.nowCoordinates);
+      this.updateMapView(this.nowCoordinates, beforeCoordinates);
     });
   }
 
@@ -131,9 +131,26 @@ export class MapComponent implements OnInit {
   }
 
   /**
-   * マップの表示を更新する
+   * 引数の座標情報を使って、新しい座標情報のインスタンスを作成する
+   * @param coordinates 座標情報
+   * @returns 与えられた座標情報と同じ情報を持つ新しいインスタンス
    */
-  updateMapView(coordinates: Coordinates | undefined) {
+  createCoordinates(
+    coordinates: Coordinates | undefined
+  ): Coordinates | undefined {
+    if (coordinates === undefined) return undefined;
+    return new Coordinates(coordinates.latitude, coordinates.longitude);
+  }
+
+  /**
+   * 地図の表示を更新する
+   * @param coordinates 現在の使用者の位置
+   * @param beforeCoordinates 直前の使用者の位置
+   */
+  updateMapView(
+    coordinates: Coordinates | undefined,
+    beforeCoordinates?: Coordinates | undefined
+  ) {
     if (coordinates !== undefined) {
       // 地図がまだ読み込まれていない場合
       if (this.map === undefined) {
@@ -146,7 +163,7 @@ export class MapComponent implements OnInit {
           this.setMapCoordinates(coordinates);
         }
       }
-      this.addWalkedPathVertex(coordinates);
+      this.addWalkedPathVertex(coordinates, beforeCoordinates);
     }
 
     this.geolocateLoadCount++;
@@ -175,20 +192,26 @@ export class MapComponent implements OnInit {
   /**
    * 地図のクリック、ズーム・移動などのイベント受け取り時の処理を追加する
    */
-  addMapEventListener(){
-    if(this.map === undefined) return;
+  addMapEventListener() {
+    if (this.map === undefined) return;
     this.map.on('click', (e: Leaflet.LeafletMouseEvent) => {
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
       if (this.isClickToMove == true) {
+        const beforeCoordinates = this.createCoordinates(this.nowCoordinates);
+
         this.setNowCoordinatesFromCoordintates(new Coordinates(lat, lng));
-        this.updateMapView(new Coordinates(lat, lng));
+        this.updateMapView(this.nowCoordinates, beforeCoordinates);
       }
     });
 
     this.map.on('move', () => {
-      this.drawUpdateSVGLayer();
+      this.updateMoveSVGLayer();
     });
+
+    this.map.on('zoom', () => {
+      this.updateZoomSVGLayer();
+    })
   }
 
   /**
@@ -222,7 +245,12 @@ export class MapComponent implements OnInit {
    * マスク処理を行うSVGを初期化する
    */
   initMask() {
-    if (this.map === undefined || this.maskLayer === undefined || this.plotLayer === undefined) return;
+    if (
+      this.map === undefined ||
+      this.maskLayer === undefined ||
+      this.plotLayer === undefined
+    )
+      return;
     this.maskLayer
       .data([
         new Position(
@@ -269,9 +297,15 @@ export class MapComponent implements OnInit {
   /**
    * 地図移動時に毎回実行するSVGレイヤー更新処理
    */
-  drawUpdateSVGLayer() {
+  updateMoveSVGLayer() {
     this.updateLayer();
     this.updateMask();
+  }
+
+  /**
+   * 地図ズーム時に毎回実行するSVGレイヤー更新処理
+   */
+  updateZoomSVGLayer() {
     this.updateUnMaskedArea();
   }
 
@@ -279,7 +313,12 @@ export class MapComponent implements OnInit {
    * 地図にSVGを描画するレイヤーを更新する
    */
   updateLayer() {
-    if (this.map === undefined || this.svgLayer === undefined || this.plotLayer === undefined) return;
+    if (
+      this.map === undefined ||
+      this.svgLayer === undefined ||
+      this.plotLayer === undefined
+    )
+      return;
 
     var bounds = this.map.getBounds();
     var topLeft = this.map.latLngToLayerPoint(bounds.getNorthWest());
@@ -339,15 +378,32 @@ export class MapComponent implements OnInit {
    */
   updateUnMaskedArea() {
     this.maskLayer?.selectAll('circle').each((d, n, elms) => {
-      if (this.map === undefined || this.nowCoordinates === undefined) return;
+      if (this.map === undefined) return;
       const data = d as Position;
       data.setLayerPoint(
         this.map.latLngToLayerPoint(
           new Leaflet.LatLng(data.latitude, data.longitude)
         )
       );
-      D3.select(elms[n]).attr('r', this.unmaskCircleSize).attr('cx', data.x).attr('cy', data.y);
+      D3.select(elms[n])
+        .attr('r', this.unmaskCircleSize)
+        .attr('cx', data.x)
+        .attr('cy', data.y);
     });
+
+    this.maskLayer?.selectAll('polygon').each((d, n, elms) => {
+      const data = d as Position[];
+        data.forEach((pos) => {
+          if(this.map === undefined) return;
+          pos.setLayerPoint(
+            this.map.latLngToLayerPoint(
+              new Leaflet.LatLng(pos.latitude, pos.longitude)
+            )
+          );
+          D3.select(elms[n])
+            .attr('points', this.createUnMaskPolygonPointsAttr(data));
+        })
+    })
   }
 
   /**
@@ -423,10 +479,13 @@ export class MapComponent implements OnInit {
    * これまでの移動経路の頂点を追加する
    * @param coordinates 使用者の座標
    */
-  addWalkedPathVertex(coordinates: Coordinates | undefined) {
+  addWalkedPathVertex(
+    coordinates: Coordinates | undefined,
+    beforeCoordinates: Coordinates | undefined
+  ) {
     if (this.isTrackingUser == true && coordinates !== undefined) {
       this.walkedPath?.addLatLng([coordinates.latitude, coordinates.longitude]);
-      this.addWalkedArea(coordinates);
+      this.addWalkedArea(coordinates, beforeCoordinates);
     }
   }
 
@@ -434,13 +493,15 @@ export class MapComponent implements OnInit {
    * 移動経路を表示するため、マスクを解除する領域を追加する
    * @param coordinates 使用者の座標
    */
-  addWalkedArea(coordinates: Coordinates) {
+  addWalkedArea(
+    coordinates: Coordinates,
+    beforeCoordinates: Coordinates | undefined
+  ) {
     if (
       this.map !== undefined &&
       this.plotLayer !== undefined &&
       this.maskLayer !== undefined
     ) {
-
       this.maskLayer
         .data([
           new Position(
@@ -456,7 +517,69 @@ export class MapComponent implements OnInit {
         .attr('cx', (d) => d.x)
         .attr('cy', (d) => d.y)
         .attr('r', this.unmaskCircleSize);
+
+      if (beforeCoordinates !== undefined) {
+        this.maskLayer
+          .data([
+            [
+              new Position(
+                coordinates.latitude,
+                coordinates.longitude,
+                this.map.latLngToLayerPoint([
+                  coordinates.latitude,
+                  coordinates.longitude,
+                ])
+              ),
+              new Position(
+                beforeCoordinates.latitude,
+                beforeCoordinates.longitude,
+                this.map.latLngToLayerPoint([
+                  beforeCoordinates.latitude,
+                  beforeCoordinates.longitude,
+                ])
+              ),
+            ],
+          ])
+          .append('polygon')
+          .attr('points', (d) => this.createUnMaskPolygonPointsAttr(d));
+      }
     }
+  }
+
+  /**
+   * マスクしない領域を定義するための多角形SVGのpoints属性テキストを作って返す
+   * @param positions 現在の位置と直前の位置の位置情報配列
+   * @returns 多角形SVGのpoints属性テキスト
+   */
+  createUnMaskPolygonPointsAttr(positions: Position[]): string {
+    const vector = [positions[0].x - positions[1].x, positions[0].y - positions[1].y];
+    const vectorValue = Math.pow(Math.pow(vector[0], 2) + Math.pow(vector[1], 2), 0.5);
+    const unitVector = [vector[0] / vectorValue, vector[1] / vectorValue];
+    const unitVectorValue = Math.pow(Math.pow(unitVector[0], 2) + Math.pow(unitVector[1], 2), 0.5);
+    console.log(unitVector);
+    console.log(unitVectorValue);
+    console.log([positions[0].x + (this.unmaskCircleSize * unitVector[1]), positions[0].y + (this.unmaskCircleSize * unitVector[0])]);
+    console.log([positions[0].x + (this.unmaskCircleSize * -unitVector[1]), positions[0].y + (this.unmaskCircleSize * -unitVector[0])]);
+
+    const pointsText =
+      (positions[0].x + (this.unmaskCircleSize * -unitVector[1])) +
+      ',' +
+      (positions[0].y + (this.unmaskCircleSize * unitVector[0])) +
+      ' ' +
+      (positions[0].x + (this.unmaskCircleSize * unitVector[1])) +
+      ',' +
+      (positions[0].y + (this.unmaskCircleSize * -unitVector[0])) +
+      ' ' +
+      (positions[1].x + (this.unmaskCircleSize * unitVector[1])) +
+      ',' +
+      (positions[1].y + (this.unmaskCircleSize * -unitVector[0])) +
+      ' ' +
+      (positions[1].x + (this.unmaskCircleSize * -unitVector[1])) +
+      ',' +
+      (positions[1].y + (this.unmaskCircleSize * unitVector[0])) +
+      ' ';
+
+    return pointsText;
   }
 
   /**
