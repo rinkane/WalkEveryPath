@@ -135,12 +135,11 @@ export class MapComponent implements OnInit {
    * @param coordinates 座標情報
    * @returns 与えられた座標情報と同じ情報を持つ新しいインスタンス
    */
-  createCoordinates(coordinates: Coordinates | undefined): Coordinates | undefined {
-    if(coordinates === undefined) return undefined;
-    return new Coordinates(
-      coordinates.latitude,
-      coordinates.longitude
-    );
+  createCoordinates(
+    coordinates: Coordinates | undefined
+  ): Coordinates | undefined {
+    if (coordinates === undefined) return undefined;
+    return new Coordinates(coordinates.latitude, coordinates.longitude);
   }
 
   /**
@@ -496,50 +495,67 @@ export class MapComponent implements OnInit {
         .attr('r', this.unmaskCircleSize);
 
       if (beforeCoordinates !== undefined) {
-        console.log("mask-rect");
         this.maskLayer
-          .data([[
-            new Position(
-              coordinates.latitude,
-              coordinates.longitude,
-              this.map.latLngToLayerPoint([
+          .data([
+            [
+              new Position(
                 coordinates.latitude,
                 coordinates.longitude,
-              ])
-            ),
-            new Position(
-              beforeCoordinates.latitude,
-              beforeCoordinates.longitude,
-              this.map.latLngToLayerPoint([
+                this.map.latLngToLayerPoint([
+                  coordinates.latitude,
+                  coordinates.longitude,
+                ])
+              ),
+              new Position(
                 beforeCoordinates.latitude,
                 beforeCoordinates.longitude,
-              ])
-            ),
-          ]])
+                this.map.latLngToLayerPoint([
+                  beforeCoordinates.latitude,
+                  beforeCoordinates.longitude,
+                ])
+              ),
+            ],
+          ])
           .append('polygon')
-          .attr(
-            'points',
-            (d) =>
-              d[0].x +
-              this.unmaskCircleSize +
-              ',' +
-              (d[0].y + this.unmaskCircleSize) +
-              ' ' +
-              (d[0].x + this.unmaskCircleSize) +
-              ',' +
-              (d[0].y - this.unmaskCircleSize) +
-              ' ' +
-              (d[1].x - this.unmaskCircleSize) +
-              ',' +
-              (d[1].y - this.unmaskCircleSize) +
-              ' ' +
-              (d[1].x - this.unmaskCircleSize) +
-              ',' +
-              (d[1].y + this.unmaskCircleSize) +
-              ' '
-          );
+          .attr('points', (d) => this.createUnMaskPolygonPointsAttr(d));
       }
     }
+  }
+
+  /**
+   * マスクしない領域を定義するための多角形SVGのpoints属性テキストを作って返す
+   * @param positions 現在の位置と直前の位置の位置情報配列
+   * @returns 多角形SVGのpoints属性テキスト
+   */
+  createUnMaskPolygonPointsAttr(positions: Position[]): string {
+    const vector = [positions[0].x - positions[1].x, positions[0].y - positions[1].y];
+    const vectorValue = Math.pow(Math.pow(vector[0], 2) + Math.pow(vector[1], 2), 0.5);
+    const unitVector = [vector[0] / vectorValue, vector[1] / vectorValue];
+    const unitVectorValue = Math.pow(Math.pow(unitVector[0], 2) + Math.pow(unitVector[1], 2), 0.5);
+    console.log(unitVector);
+    console.log(unitVectorValue);
+    console.log([positions[0].x + (this.unmaskCircleSize * unitVector[1]), positions[0].y + (this.unmaskCircleSize * unitVector[0])]);
+    console.log([positions[0].x + (this.unmaskCircleSize * -unitVector[1]), positions[0].y + (this.unmaskCircleSize * -unitVector[0])]);
+
+    const pointsText =
+      (positions[0].x + (this.unmaskCircleSize * -unitVector[1])) +
+      ',' +
+      (positions[0].y + (this.unmaskCircleSize * unitVector[0])) +
+      ' ' +
+      (positions[0].x + (this.unmaskCircleSize * unitVector[1])) +
+      ',' +
+      (positions[0].y + (this.unmaskCircleSize * -unitVector[0])) +
+      ' ' +
+      (positions[1].x + (this.unmaskCircleSize * unitVector[1])) +
+      ',' +
+      (positions[1].y + (this.unmaskCircleSize * -unitVector[0])) +
+      ' ' +
+      (positions[1].x + (this.unmaskCircleSize * -unitVector[1])) +
+      ',' +
+      (positions[1].y + (this.unmaskCircleSize * unitVector[0])) +
+      ' ';
+
+    return pointsText;
   }
 
   /**
