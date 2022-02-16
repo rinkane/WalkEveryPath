@@ -6,6 +6,10 @@ RUN apt-get update
 RUN echo y | apt-get install git
 RUN npm install -g @angular/cli
 
-COPY ./ ./
+COPY package*.json ./
 
-EXPOSE 4200
+RUN npm install
+
+COPY . .
+
+RUN npm run build
