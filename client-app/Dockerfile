@@ -14,8 +14,8 @@ COPY . .
 
 RUN npm run build
 
-FROM nginx:1.21
+//FROM nginx:1.21
 
-COPY --from=build-stage /usr/src/client-app/dist/client-app/ /usr/share/nginx/html
+//COPY --from=build-stage /usr/src/client-app/dist/client-app/ /usr/share/nginx/html
 
-COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
+//COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
