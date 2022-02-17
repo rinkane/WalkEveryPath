@@ -19,7 +19,6 @@ services:
   fastapi:
     build: ./fastapi
     volumes:
-      - ./fastapi/.dockervenv:/src/.venv
       - ./fastapi:/src
     ports:
       - "8000:8000"
