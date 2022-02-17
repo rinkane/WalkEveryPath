@@ -1,2 +1,4 @@
 data/mysql/
 client-app/query
+nginx/dist/
+fastapi/api/__pycache__
