@@ -1,12 +1,17 @@
 version: '3.9'
+
 services:
+  nginx-server:
+    build: ./nginx
+    volumes:
+      - ./nginx/dist:/usr/share/nginx/html
+    ports:
+      - "8080:8080"
+      - "443:443"
   client-app:
     build: ./client-app
     ports:
-      - "8080:8080"
       - "4200:4200"
-    environment:
-      TZ: "Asia/Tokyo"
     volumes:
       - ./client-app:/usr/src/client-app
       - /usr/src/client-app/node_modules

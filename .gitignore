@@ -1,2 +1,3 @@
 data/mysql/
 client-app/query
+nginx/dist/
